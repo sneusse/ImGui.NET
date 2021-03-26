@@ -34,12 +34,29 @@ namespace ImGuiNET
 
         static void Main(string[] args)
         {
+            bool useOpenGL = false;
+
             // Create window, GraphicsDevice, and all resources necessary for the demo.
-            VeldridStartup.CreateWindowAndGraphicsDevice(
-                new WindowCreateInfo(50, 50, 1280, 720, WindowState.Normal, "ImGui.NET Sample Program"),
-                new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Improved, true, true),
-                out _window,
-                out _gd);
+            if (useOpenGL)
+            {
+                _window = new Sdl2Window("OpenGL Sample", 
+                    Sdl2Native.SDL_WINDOWPOS_CENTERED,
+                    Sdl2Native.SDL_WINDOWPOS_CENTERED,
+                    1280, 720, 
+                    SDL_WindowFlags.OpenGL | SDL_WindowFlags.Resizable, true);
+                _gd = VeldridStartup.CreateDefaultOpenGLGraphicsDevice(
+                    new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Improved),
+                    _window, GraphicsBackend.OpenGL);
+            }
+            else
+            {
+                VeldridStartup.CreateWindowAndGraphicsDevice(
+                    new WindowCreateInfo(50, 50, 1280, 720, WindowState.Normal, "ImGui.NET Sample Program"),
+                    new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Default, true, true),
+                    out _window,
+                    out _gd);
+            }
+
             _window.Resized += () =>
             {
                 _gd.MainSwapchain.Resize((uint)_window.Width, (uint)_window.Height);
