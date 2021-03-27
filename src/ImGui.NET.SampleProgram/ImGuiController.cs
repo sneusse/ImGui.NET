@@ -69,9 +69,6 @@ namespace ImGuiNET
             SetKeyMappings();
 
             SetPerFrameImGuiData(1f / 60f);
-
-            ImGui.NewFrame();
-            _frameBegun = true;
         }
 
         public void WindowResized(int width, int height)
@@ -93,7 +90,6 @@ namespace ImGuiNET
             _vertexBuffer.Name = "ImGui.NET Vertex Buffer";
             _indexBuffer = factory.CreateBuffer(new BufferDescription(2000, BufferUsage.IndexBuffer | BufferUsage.Dynamic));
             _indexBuffer.Name = "ImGui.NET Index Buffer";
-            RecreateFontDeviceTexture(gd);
 
             _projMatrixBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer | BufferUsage.Dynamic));
             _projMatrixBuffer.Name = "ImGui.NET Projection Buffer";
@@ -132,7 +128,8 @@ namespace ImGuiNET
                 _projMatrixBuffer,
                 gd.PointSampler));
 
-            _fontTextureResourceSet = factory.CreateResourceSet(new ResourceSetDescription(_textureLayout, _fontTextureView));
+
+            RecreateFontDeviceTexture(gd);
         }
 
         /// <summary>
@@ -277,6 +274,7 @@ namespace ImGuiNET
                 0,
                 0);
             _fontTextureView = gd.ResourceFactory.CreateTextureView(_fontTexture);
+            _fontTextureResourceSet = gd.ResourceFactory.CreateResourceSet(new ResourceSetDescription(_textureLayout, _fontTextureView));
 
             io.Fonts.ClearTexData();
         }
@@ -302,11 +300,6 @@ namespace ImGuiNET
         /// </summary>
         public void Update(float deltaSeconds, InputSnapshot snapshot)
         {
-            if (_frameBegun)
-            {
-                ImGui.Render();
-            }
-
             SetPerFrameImGuiData(deltaSeconds);
             UpdateImGuiInput(snapshot);
 
@@ -457,7 +450,7 @@ namespace ImGuiNET
                     vertexOffsetInVertices * (uint)Unsafe.SizeOf<ImDrawVert>(),
                     cmd_list.VtxBuffer.Data,
                     (uint)(cmd_list.VtxBuffer.Size * Unsafe.SizeOf<ImDrawVert>()));
-
+                
                 cl.UpdateBuffer(
                     _indexBuffer,
                     indexOffsetInElements * sizeof(ushort),

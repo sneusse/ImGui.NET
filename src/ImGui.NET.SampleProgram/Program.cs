@@ -1,11 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using ImPlotNET;
 using Veldrid;
 using Veldrid.Sdl2;
 using Veldrid.StartupUtilities;
-
 using static ImGuiNET.ImGuiNative;
 
 namespace ImGuiNET
@@ -27,10 +27,13 @@ namespace ImGuiNET
         private static bool _showAnotherWindow = false;
         private static bool _showMemoryEditor = false;
         private static byte[] _memoryEditorData;
-        private static uint s_tab_bar_flags = (uint)ImGuiTabBarFlags.Reorderable;
-        static bool[] s_opened = { true, true, true, true }; // Persistent user state
+        private static uint s_tab_bar_flags = (uint) ImGuiTabBarFlags.Reorderable;
+        static bool[] s_opened = {true, true, true, true}; // Persistent user state
 
-        static void SetThing(out float i, float val) { i = val; }
+        static void SetThing(out float i, float val)
+        {
+            i = val;
+        }
 
         static void Main(string[] args)
         {
@@ -39,10 +42,10 @@ namespace ImGuiNET
             // Create window, GraphicsDevice, and all resources necessary for the demo.
             if (useOpenGL)
             {
-                _window = new Sdl2Window("OpenGL Sample", 
+                _window = new Sdl2Window("OpenGL Sample",
                     Sdl2Native.SDL_WINDOWPOS_CENTERED,
                     Sdl2Native.SDL_WINDOWPOS_CENTERED,
-                    1280, 720, 
+                    1280, 720,
                     SDL_WindowFlags.OpenGL | SDL_WindowFlags.Resizable, true);
                 _gd = VeldridStartup.CreateDefaultOpenGLGraphicsDevice(
                     new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Improved),
@@ -52,28 +55,50 @@ namespace ImGuiNET
             {
                 VeldridStartup.CreateWindowAndGraphicsDevice(
                     new WindowCreateInfo(50, 50, 1280, 720, WindowState.Normal, "ImGui.NET Sample Program"),
-                    new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Default, true, true),
+                    new GraphicsDeviceOptions(true, null, true, ResourceBindingModel.Improved, true, true),
                     out _window,
                     out _gd);
             }
 
             _window.Resized += () =>
             {
-                _gd.MainSwapchain.Resize((uint)_window.Width, (uint)_window.Height);
+                _gd.MainSwapchain.Resize((uint) _window.Width, (uint) _window.Height);
                 _controller.WindowResized(_window.Width, _window.Height);
             };
             _cl = _gd.ResourceFactory.CreateCommandList();
-            _controller = new ImGuiController(_gd, _gd.MainSwapchain.Framebuffer.OutputDescription, _window.Width, _window.Height);
+            _controller = new ImGuiController(_gd, _gd.MainSwapchain.Framebuffer.OutputDescription, _window.Width,
+                _window.Height);
             _memoryEditor = new MemoryEditor();
             Random random = new Random();
-            _memoryEditorData = Enumerable.Range(0, 1024).Select(i => (byte)random.Next(255)).ToArray();
+            _memoryEditorData = Enumerable.Range(0, 1024).Select(i => (byte) random.Next(255)).ToArray();
 
+            // ImPlot.CreateContext();
+            // ImPlot.SetImGuiContext(ImGui.GetCurrentContext());
+
+            var font = ImGui.GetIO().Fonts
+                .AddFontFromFileTTF(@"C:\SN\prj\VS\ImGui.NET-nativebuild\cimgui\imgui\misc\fonts\DroidSans.ttf", 22);
+            // ImGui.GetIO().Fonts.Build();
+            _controller.RecreateFontDeviceTexture(_gd);
+
+            unsafe
+            {
+                ImGui.GetIO().NativePtr->FontDefault = font;
+            }
+
+            var sw = Stopwatch.StartNew();
             // Main application loop
             while (_window.Exists)
             {
                 InputSnapshot snapshot = _window.PumpEvents();
-                if (!_window.Exists) { break; }
-                _controller.Update(1f / 60f, snapshot); // Feed the input events to our ImGui controller, which passes them through to ImGui.
+                if (!_window.Exists)
+                {
+                    break;
+                }
+
+                var dt = sw.Elapsed.TotalSeconds;
+                sw.Restart();
+                _controller.Update((float) dt,
+                    snapshot); // Feed the input events to our ImGui controller, which passes them through to ImGui.
 
                 SubmitUI();
 
@@ -101,16 +126,19 @@ namespace ImGuiNET
             // 1. Show a simple window.
             // Tip: if we don't call ImGui.BeginWindow()/ImGui.EndWindow() the widgets automatically appears in a window called "Debug".
             {
-                ImGui.Text("Hello, world!");                                        // Display some text (you can use a format string too)
-                ImGui.SliderFloat("float", ref _f, 0, 1, _f.ToString("0.000"));  // Edit 1 float using a slider from 0.0f to 1.0f    
+                ImGui.Text("Hello, world!"); // Display some text (you can use a format string too)
+                ImGui.SliderFloat("float", ref _f, 0, 1,
+                    _f.ToString("0.000")); // Edit 1 float using a slider from 0.0f to 1.0f    
                 //ImGui.ColorEdit3("clear color", ref _clearColor);                   // Edit 3 floats representing a color
 
                 ImGui.Text($"Mouse position: {ImGui.GetMousePos()}");
 
-                ImGui.Checkbox("ImGui Demo Window", ref _showImGuiDemoWindow);                 // Edit bools storing our windows open/close state
+                ImGui.Checkbox("ImGui Demo Window",
+                    ref _showImGuiDemoWindow); // Edit bools storing our windows open/close state
                 ImGui.Checkbox("Another Window", ref _showAnotherWindow);
                 ImGui.Checkbox("Memory Editor", ref _showMemoryEditor);
-                if (ImGui.Button("Button"))                                         // Buttons return true when clicked (NB: most widgets return true when edited/activated)
+                if (ImGui.Button("Button")
+                ) // Buttons return true when clicked (NB: most widgets return true when edited/activated)
                     _counter++;
                 ImGui.SameLine(0, -1);
                 ImGui.Text($"counter = {_counter}");
@@ -128,6 +156,8 @@ namespace ImGuiNET
                 ImGui.Text("Hello from another window!");
                 if (ImGui.Button("Close Me"))
                     _showAnotherWindow = false;
+
+                ImPlot.ShowDemoWindow();
                 ImGui.End();
             }
 
@@ -139,7 +169,7 @@ namespace ImGuiNET
                 ImGui.SetNextWindowPos(new Vector2(650, 20), ImGuiCond.FirstUseEver);
                 ImGui.ShowDemoWindow(ref _showImGuiDemoWindow);
             }
-            
+
             if (ImGui.TreeNode("Tabs"))
             {
                 if (ImGui.TreeNode("Basic"))
@@ -152,18 +182,22 @@ namespace ImGuiNET
                             ImGui.Text("This is the Avocado tab!\nblah blah blah blah blah");
                             ImGui.EndTabItem();
                         }
+
                         if (ImGui.BeginTabItem("Broccoli"))
                         {
                             ImGui.Text("This is the Broccoli tab!\nblah blah blah blah blah");
                             ImGui.EndTabItem();
                         }
+
                         if (ImGui.BeginTabItem("Cucumber"))
                         {
                             ImGui.Text("This is the Cucumber tab!\nblah blah blah blah blah");
                             ImGui.EndTabItem();
                         }
+
                         ImGui.EndTabBar();
                     }
+
                     ImGui.Separator();
                     ImGui.TreePop();
                 }
@@ -171,27 +205,38 @@ namespace ImGuiNET
                 if (ImGui.TreeNode("Advanced & Close Button"))
                 {
                     // Expose a couple of the available flags. In most cases you may just call BeginTabBar() with no flags (0).
-                    ImGui.CheckboxFlags("ImGuiTabBarFlags_Reorderable", ref s_tab_bar_flags, (uint)ImGuiTabBarFlags.Reorderable);
-                    ImGui.CheckboxFlags("ImGuiTabBarFlags_AutoSelectNewTabs", ref s_tab_bar_flags, (uint)ImGuiTabBarFlags.AutoSelectNewTabs);
-                    ImGui.CheckboxFlags("ImGuiTabBarFlags_NoCloseWithMiddleMouseButton", ref s_tab_bar_flags, (uint)ImGuiTabBarFlags.NoCloseWithMiddleMouseButton);
-                    if ((s_tab_bar_flags & (uint)ImGuiTabBarFlags.FittingPolicyMask) == 0)
-                        s_tab_bar_flags |= (uint)ImGuiTabBarFlags.FittingPolicyDefault;
-                    if (ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyResizeDown", ref s_tab_bar_flags, (uint)ImGuiTabBarFlags.FittingPolicyResizeDown))
-                s_tab_bar_flags &= ~((uint)ImGuiTabBarFlags.FittingPolicyMask ^ (uint)ImGuiTabBarFlags.FittingPolicyResizeDown);
-                    if (ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyScroll", ref s_tab_bar_flags, (uint)ImGuiTabBarFlags.FittingPolicyScroll))
-                s_tab_bar_flags &= ~((uint)ImGuiTabBarFlags.FittingPolicyMask ^ (uint)ImGuiTabBarFlags.FittingPolicyScroll);
+                    ImGui.CheckboxFlags("ImGuiTabBarFlags_Reorderable", ref s_tab_bar_flags,
+                        (uint) ImGuiTabBarFlags.Reorderable);
+                    ImGui.CheckboxFlags("ImGuiTabBarFlags_AutoSelectNewTabs", ref s_tab_bar_flags,
+                        (uint) ImGuiTabBarFlags.AutoSelectNewTabs);
+                    ImGui.CheckboxFlags("ImGuiTabBarFlags_NoCloseWithMiddleMouseButton", ref s_tab_bar_flags,
+                        (uint) ImGuiTabBarFlags.NoCloseWithMiddleMouseButton);
+                    if ((s_tab_bar_flags & (uint) ImGuiTabBarFlags.FittingPolicyMask) == 0)
+                        s_tab_bar_flags |= (uint) ImGuiTabBarFlags.FittingPolicyDefault;
+                    if (ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyResizeDown", ref s_tab_bar_flags,
+                        (uint) ImGuiTabBarFlags.FittingPolicyResizeDown))
+                        s_tab_bar_flags &= ~((uint) ImGuiTabBarFlags.FittingPolicyMask ^
+                                             (uint) ImGuiTabBarFlags.FittingPolicyResizeDown);
+                    if (ImGui.CheckboxFlags("ImGuiTabBarFlags_FittingPolicyScroll", ref s_tab_bar_flags,
+                        (uint) ImGuiTabBarFlags.FittingPolicyScroll))
+                        s_tab_bar_flags &= ~((uint) ImGuiTabBarFlags.FittingPolicyMask ^
+                                             (uint) ImGuiTabBarFlags.FittingPolicyScroll);
 
                     // Tab Bar
-                    string[] names = { "Artichoke", "Beetroot", "Celery", "Daikon" };
+                    string[] names = {"Artichoke", "Beetroot", "Celery", "Daikon"};
 
                     for (int n = 0; n < s_opened.Length; n++)
                     {
-                        if (n > 0) { ImGui.SameLine(); }
+                        if (n > 0)
+                        {
+                            ImGui.SameLine();
+                        }
+
                         ImGui.Checkbox(names[n], ref s_opened[n]);
                     }
 
                     // Passing a bool* to BeginTabItem() is similar to passing one to Begin(): the underlying bool will be set to false when the tab is closed.
-                    if (ImGui.BeginTabBar("MyTabBar", (ImGuiTabBarFlags)s_tab_bar_flags))
+                    if (ImGui.BeginTabBar("MyTabBar", (ImGuiTabBarFlags) s_tab_bar_flags))
                     {
                         for (int n = 0; n < s_opened.Length; n++)
                             if (s_opened[n] && ImGui.BeginTabItem(names[n], ref s_opened[n]))
@@ -201,11 +246,14 @@ namespace ImGuiNET
                                     ImGui.Text("I am an odd tab.");
                                 ImGui.EndTabItem();
                             }
+
                         ImGui.EndTabBar();
                     }
+
                     ImGui.Separator();
                     ImGui.TreePop();
                 }
+
                 ImGui.TreePop();
             }
 
