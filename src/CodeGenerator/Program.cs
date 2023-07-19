@@ -67,15 +67,8 @@ namespace CodeGenerator
                 _ => throw new NotImplementedException($"Library \"{libraryName}\" is not supported.")
             };
 
-            string dllName = libraryName switch
-            {
-                "cimgui" => "cimgui",
-                "cimplot" => "cimplot",
-                "cimnodes" => "cimnodes",
-                "cimguizmo" => "cimguizmo",
-                _ => throw new NotImplementedException()
-            };
-            
+            string dllName = "cnative";
+
             string definitionsPath = Path.Combine(AppContext.BaseDirectory, "definitions", libraryName);
             var defs = new ImguiDefinitions();
             defs.LoadFrom(definitionsPath);
@@ -149,126 +142,142 @@ namespace CodeGenerator
                     string ptrTypeName = td.Name + "Ptr";
                     writer.PushBlock($"public unsafe partial struct {ptrTypeName}");
                     writer.WriteLine($"public {td.Name}* NativePtr {{ get; }}");
+
                     writer.WriteLine($"public {ptrTypeName}({td.Name}* nativePtr) => NativePtr = nativePtr;");
                     writer.WriteLine($"public {ptrTypeName}(IntPtr nativePtr) => NativePtr = ({td.Name}*)nativePtr;");
                     writer.WriteLine($"public static implicit operator {ptrTypeName}({td.Name}* nativePtr) => new {ptrTypeName}(nativePtr);");
                     writer.WriteLine($"public static implicit operator {td.Name}* ({ptrTypeName} wrappedPtr) => wrappedPtr.NativePtr;");
                     writer.WriteLine($"public static implicit operator {ptrTypeName}(IntPtr nativePtr) => new {ptrTypeName}(nativePtr);");
+                    writer.WriteLine($"public static implicit operator IntPtr({ptrTypeName} self) => (IntPtr)self.NativePtr;");
 
-                    foreach (TypeReference field in td.Fields)
+                    if (!TypeInfo.SkipPointerImpl.Contains(ptrTypeName))
                     {
-                        string typeStr = GetTypeString(field.Type, field.IsFunctionPointer);
-                        string rawType = typeStr;
 
-                        if (TypeInfo.WellKnownFieldReplacements.TryGetValue(field.Type, out string wellKnownFieldType))
+                        foreach (TypeReference field in td.Fields)
                         {
-                            typeStr = wellKnownFieldType;
-                        }
+                            string typeStr = GetTypeString(field.Type, field.IsFunctionPointer);
+                            string rawType = typeStr;
 
-                        if (field.ArraySize != 0)
-                        {
-                            string addrTarget = TypeInfo.LegalFixedTypes.Contains(rawType) ? $"NativePtr->{field.Name}" : $"&NativePtr->{field.Name}_0";
-                            writer.WriteLine($"public RangeAccessor<{typeStr}> {field.Name} => new RangeAccessor<{typeStr}>({addrTarget}, {field.ArraySize});");
-                        }
-                        else if (typeStr.Contains("ImVector"))
-                        {
-                            string vectorElementType = GetTypeString(field.TemplateType, false);
-
-                            if (TypeInfo.WellKnownTypes.TryGetValue(vectorElementType, out string wellKnown))
+                            if (TypeInfo.WellKnownFieldReplacements.TryGetValue(field.Type, out string wellKnownFieldType))
                             {
-                                vectorElementType = wellKnown;
+                                typeStr = wellKnownFieldType;
                             }
 
-                            if (GetWrappedType(vectorElementType + "*", out string wrappedElementType))
+                            if (field.ArraySize != 0)
                             {
-                                writer.WriteLine($"public ImPtrVector<{wrappedElementType}> {field.Name} => new ImPtrVector<{wrappedElementType}>(NativePtr->{field.Name}, Unsafe.SizeOf<{vectorElementType}>());");
-                            }
-                            else
-                            {
-                                if (GetWrappedType(vectorElementType, out wrappedElementType))
+                                string addrTarget = TypeInfo.LegalFixedTypes.Contains(rawType) ? $"NativePtr->{field.Name}" : $"&NativePtr->{field.Name}_0";
+                                if (typeStr.EndsWith("*"))
                                 {
-                                    vectorElementType = wrappedElementType;
+                                    typeStr = typeStr.Substring(0, typeStr.Length - 1) + "Ptr";
                                 }
-                                writer.WriteLine($"public ImVector<{vectorElementType}> {field.Name} => new ImVector<{vectorElementType}>(NativePtr->{field.Name});");
-                            }
-                        }
-                        else
-                        {
-                            if (typeStr.Contains("*") && !typeStr.Contains("ImVector"))
-                            {
-                                if (GetWrappedType(typeStr, out string wrappedTypeName))
+                                if (typeStr == "bytePtr")
                                 {
-                                    writer.WriteLine($"public {wrappedTypeName} {field.Name} => new {wrappedTypeName}(NativePtr->{field.Name});");
+                                    typeStr = "IntPtr";
                                 }
-                                else if (typeStr == "byte*" && IsStringFieldName(field.Name))
+                                writer.WriteLine($"public RangeAccessor<{typeStr}> {field.Name} => new RangeAccessor<{typeStr}>({addrTarget}, {field.ArraySize});");
+                            }
+                            else if (typeStr.Contains("ImVector"))
+                            {
+                                string vectorElementType = GetTypeString(field.TemplateType, false);
+
+                                if (TypeInfo.WellKnownTypes.TryGetValue(vectorElementType, out string wellKnown))
                                 {
-                                    writer.WriteLine($"public NullTerminatedString {field.Name} => new NullTerminatedString(NativePtr->{field.Name});");
+                                    vectorElementType = wellKnown;
+                                }
+
+                                if (GetWrappedType(vectorElementType + "*", out string wrappedElementType))
+                                {
+                                    writer.WriteLine($"public ImPtrVector<{wrappedElementType}> {field.Name} => new ImPtrVector<{wrappedElementType}>(NativePtr->{field.Name}, Unsafe.SizeOf<{vectorElementType}>());");
                                 }
                                 else
                                 {
-                                    writer.WriteLine($"public IntPtr {field.Name} {{ get => (IntPtr)NativePtr->{field.Name}; set => NativePtr->{field.Name} = ({typeStr})value; }}");
+                                    if (GetWrappedType(vectorElementType, out wrappedElementType))
+                                    {
+                                        vectorElementType = wrappedElementType;
+                                    }
+                                    writer.WriteLine($"public ImVector<{vectorElementType}> {field.Name} => new ImVector<{vectorElementType}>(NativePtr->{field.Name});");
                                 }
                             }
                             else
                             {
-                                writer.WriteLine($"public ref {typeStr} {field.Name} => ref Unsafe.AsRef<{typeStr}>(&NativePtr->{field.Name});");
+                                if (typeStr.Contains("*") && !typeStr.Contains("ImVector"))
+                                {
+                                    if (GetWrappedType(typeStr, out string wrappedTypeName))
+                                    {
+                                        writer.WriteLine($"public {wrappedTypeName} {field.Name} => new {wrappedTypeName}(NativePtr->{field.Name});");
+                                    }
+                                    else if (typeStr == "byte*" && IsStringFieldName(field.Name))
+                                    {
+                                        writer.WriteLine($"public NullTerminatedString {field.Name} => new NullTerminatedString(NativePtr->{field.Name});");
+                                    }
+                                    else
+                                    {
+                                        writer.WriteLine($"public IntPtr {field.Name} {{ get => (IntPtr)NativePtr->{field.Name}; set => NativePtr->{field.Name} = ({typeStr})value; }}");
+                                    }
+                                }
+                                else
+                                {
+                                    writer.WriteLine($"public ref {typeStr} {field.Name} => ref Unsafe.AsRef<{typeStr}>(&NativePtr->{field.Name});");
+                                }
                             }
                         }
-                    }
 
-                    foreach (FunctionDefinition fd in defs.Functions)
-                    {
-                        foreach (OverloadDefinition overload in fd.Overloads)
+                        foreach (FunctionDefinition fd in defs.Functions)
                         {
-                            if (overload.StructName != td.Name)
+                            foreach (OverloadDefinition overload in fd.Overloads)
                             {
-                                continue;
-                            }
-
-                            if (overload.IsConstructor)
-                            {
-                                // TODO: Emit a static function on the type that invokes the native constructor.
-                                // Also, add a "Dispose" function or similar.
-                                continue;
-                            }
-
-                            string exportedName = overload.ExportedName;
-                            if (exportedName.StartsWith("ig"))
-                            {
-                                exportedName = exportedName.Substring(2, exportedName.Length - 2);
-                            }
-                            if (exportedName.Contains("~")) { continue; }
-                            if (overload.Parameters.Any(tr => tr.Type.Contains('('))) { continue; } // TODO: Parse function pointer parameters.
-
-                            bool hasVaList = false;
-                            for (int i = 0; i < overload.Parameters.Length; i++)
-                            {
-                                TypeReference p = overload.Parameters[i];
-                                string paramType = GetTypeString(p.Type, p.IsFunctionPointer);
-                                if (p.Name == "...") { continue; }
-
-                                if (paramType == "va_list")
+                                if (overload.StructName != td.Name)
                                 {
-                                    hasVaList = true;
-                                    break;
+                                    continue;
                                 }
-                            }
-                            if (hasVaList) { continue; }
 
-                            KeyValuePair<string, string>[] orderedDefaults = overload.DefaultValues.OrderByDescending(
-                                kvp => GetIndex(overload.Parameters, kvp.Key)).ToArray();
-
-                            for (int i = overload.DefaultValues.Count; i >= 0; i--)
-                            {
-                                Dictionary<string, string> defaults = new Dictionary<string, string>();
-                                for (int j = 0; j < i; j++)
+                                if (overload.IsConstructor)
                                 {
-                                    defaults.Add(orderedDefaults[j].Key, orderedDefaults[j].Value);
+                                    // TODO: Emit a static function on the type that invokes the native constructor.
+                                    // Also, add a "Dispose" function or similar.
+                                    continue;
                                 }
-                                EmitOverload(writer, overload, defaults, "NativePtr", classPrefix);
+
+                                string exportedName = overload.ExportedName;
+                                if (exportedName.StartsWith("ig"))
+                                {
+                                    exportedName = exportedName.Substring(2, exportedName.Length - 2);
+                                }
+                                if (exportedName.Contains("~")) { continue; }
+                                if (overload.Parameters.Any(tr => tr.Type.Contains('('))) { continue; } // TODO: Parse function pointer parameters.
+
+                                bool hasVaList = false;
+                                for (int i = 0; i < overload.Parameters.Length; i++)
+                                {
+                                    TypeReference p = overload.Parameters[i];
+                                    string paramType = GetTypeString(p.Type, p.IsFunctionPointer);
+                                    if (p.Name == "...") { continue; }
+
+                                    if (paramType == "va_list")
+                                    {
+                                        hasVaList = true;
+                                        break;
+                                    }
+                                }
+                                if (hasVaList) { continue; }
+
+                                KeyValuePair<string, string>[] orderedDefaults = overload.DefaultValues.OrderByDescending(
+                                    kvp => GetIndex(overload.Parameters, kvp.Key)).ToArray();
+
+                                for (int i = overload.DefaultValues.Count; i >= 0; i--)
+                                {
+                                    Dictionary<string, string> defaults = new Dictionary<string, string>();
+                                    for (int j = 0; j < i; j++)
+                                    {
+                                        defaults.Add(orderedDefaults[j].Key, orderedDefaults[j].Value);
+                                    }
+                                    EmitOverload(writer, overload, defaults, "NativePtr", classPrefix);
+                                }
                             }
                         }
                     }
+
+
                     writer.PopBlock();
 
                     writer.PopBlock();
@@ -477,7 +486,7 @@ namespace CodeGenerator
                 if (tr.Name == "self")
                 {
                     selfIndex = i;
-                    continue; 
+                    continue;
                 }
                 if (tr.Name == "...") { continue; }
 
@@ -490,7 +499,7 @@ namespace CodeGenerator
                     preCallLines.Add($"{overrideRet} __retval;");
                     continue;
                 }
-                if (tr.Type == "char*")
+                if (tr.Type == "char*" || (tr.Type.StartsWith("char[") && tr.Type.EndsWith("]")))
                 {
                     string textToEncode = correctedIdentifier;
                     bool hasDefault = false;
@@ -608,7 +617,7 @@ namespace CodeGenerator
                 }
                 else if (tr.Type == "void*" || tr.Type == "ImWchar*")
                 {
-                    string nativePtrTypeName = tr.Type == "void*" ? "void*" : "ushort*";
+                    string nativePtrTypeName = tr.Type == "void*" ? "void*" : "int*";
                     string nativeArgName = "native_" + tr.Name;
                     marshalledParameters[i] = new MarshalledParameter("IntPtr", false, nativeArgName, false);
                     preCallLines.Add($"{nativePtrTypeName} {nativeArgName} = ({nativePtrTypeName}){correctedIdentifier}.ToPointer();");
@@ -622,7 +631,7 @@ namespace CodeGenerator
                     marshalledParameters[i] = new MarshalledParameter(wrappedParamType, false, nativeArgName, false);
                     preCallLines.Add($"{tr.Type} {nativeArgName} = {correctedIdentifier}.NativePtr;");
                 }
-                else if ((tr.Type.EndsWith("*") || tr.Type.Contains("[") || tr.Type.EndsWith("&")) && tr.Type != "void*" && tr.Type != "ImGuiContext*" && tr.Type != "ImPlotContext*"&& tr.Type != "EditorContext*")
+                else if ((tr.Type.EndsWith("*") || tr.Type.Contains("[") || tr.Type.EndsWith("&")) && tr.Type != "void*" && tr.Type != "ImGuiContext*" && tr.Type != "ImPlotContext*" && tr.Type != "EditorContext*")
                 {
                     string nonPtrType;
                     if (tr.Type.Contains("["))
@@ -733,7 +742,7 @@ namespace CodeGenerator
 
             if (overrideRet != null)
                 writer.WriteLine("return __retval;");
-            
+
             for (int i = 0; i < marshalledParameters.Length; i++)
             {
                 MarshalledParameter mp = marshalledParameters[i];
@@ -777,7 +786,7 @@ namespace CodeGenerator
                 int pointerLevel = nativeType.Length - nativeType.IndexOf('*');
                 if (pointerLevel > 1)
                 {
-                    wrappedType = null;
+                    wrappedType = "IntPtr";
                     return false; // TODO
                 }
                 string nonPtrType = nativeType.Substring(0, nativeType.Length - pointerLevel);
