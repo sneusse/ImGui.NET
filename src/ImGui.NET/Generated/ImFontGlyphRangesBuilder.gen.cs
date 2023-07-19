@@ -17,14 +17,15 @@ namespace ImGuiNET
         public static implicit operator ImFontGlyphRangesBuilderPtr(ImFontGlyphRangesBuilder* nativePtr) => new ImFontGlyphRangesBuilderPtr(nativePtr);
         public static implicit operator ImFontGlyphRangesBuilder* (ImFontGlyphRangesBuilderPtr wrappedPtr) => wrappedPtr.NativePtr;
         public static implicit operator ImFontGlyphRangesBuilderPtr(IntPtr nativePtr) => new ImFontGlyphRangesBuilderPtr(nativePtr);
+        public static implicit operator IntPtr(ImFontGlyphRangesBuilderPtr self) => (IntPtr)self.NativePtr;
         public ImVector<uint> UsedChars => new ImVector<uint>(NativePtr->UsedChars);
-        public void AddChar(ushort c)
+        public void AddChar(int c)
         {
             ImGuiNative.ImFontGlyphRangesBuilder_AddChar((ImFontGlyphRangesBuilder*)(NativePtr), c);
         }
         public void AddRanges(IntPtr ranges)
         {
-            ushort* native_ranges = (ushort*)ranges.ToPointer();
+            int* native_ranges = (int*)ranges.ToPointer();
             ImGuiNative.ImFontGlyphRangesBuilder_AddRanges((ImFontGlyphRangesBuilder*)(NativePtr), native_ranges);
         }
         public void AddText(string text)

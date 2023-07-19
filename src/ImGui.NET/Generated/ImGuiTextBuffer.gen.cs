@@ -17,6 +17,7 @@ namespace ImGuiNET
         public static implicit operator ImGuiTextBufferPtr(ImGuiTextBuffer* nativePtr) => new ImGuiTextBufferPtr(nativePtr);
         public static implicit operator ImGuiTextBuffer* (ImGuiTextBufferPtr wrappedPtr) => wrappedPtr.NativePtr;
         public static implicit operator ImGuiTextBufferPtr(IntPtr nativePtr) => new ImGuiTextBufferPtr(nativePtr);
+        public static implicit operator IntPtr(ImGuiTextBufferPtr self) => (IntPtr)self.NativePtr;
         public ImVector<byte> Buf => new ImVector<byte>(NativePtr->Buf);
         public void append(string str)
         {

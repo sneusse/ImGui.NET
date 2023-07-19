@@ -106,7 +106,7 @@ namespace ImGuiNET
         public StbUndoRecord undo_rec_96;
         public StbUndoRecord undo_rec_97;
         public StbUndoRecord undo_rec_98;
-        public fixed ushort undo_char[999];
+        public fixed int undo_char[999];
         public short undo_point;
         public short redo_point;
         public int undo_char_point;
@@ -120,8 +120,9 @@ namespace ImGuiNET
         public static implicit operator StbUndoStatePtr(StbUndoState* nativePtr) => new StbUndoStatePtr(nativePtr);
         public static implicit operator StbUndoState* (StbUndoStatePtr wrappedPtr) => wrappedPtr.NativePtr;
         public static implicit operator StbUndoStatePtr(IntPtr nativePtr) => new StbUndoStatePtr(nativePtr);
+        public static implicit operator IntPtr(StbUndoStatePtr self) => (IntPtr)self.NativePtr;
         public RangeAccessor<StbUndoRecord> undo_rec => new RangeAccessor<StbUndoRecord>(&NativePtr->undo_rec_0, 99);
-        public RangeAccessor<ushort> undo_char => new RangeAccessor<ushort>(NativePtr->undo_char, 999);
+        public RangeAccessor<int> undo_char => new RangeAccessor<int>(NativePtr->undo_char, 999);
         public ref short undo_point => ref Unsafe.AsRef<short>(&NativePtr->undo_point);
         public ref short redo_point => ref Unsafe.AsRef<short>(&NativePtr->redo_point);
         public ref int undo_char_point => ref Unsafe.AsRef<int>(&NativePtr->undo_char_point);

@@ -7,10 +7,11 @@ namespace ImGuiNET
 {
     public unsafe partial struct ImGuiInputTextCallbackData
     {
+        public IntPtr Ctx;
         public ImGuiInputTextFlags EventFlag;
         public ImGuiInputTextFlags Flags;
         public void* UserData;
-        public ushort EventChar;
+        public int EventChar;
         public ImGuiKey EventKey;
         public byte* Buf;
         public int BufTextLen;
@@ -28,10 +29,12 @@ namespace ImGuiNET
         public static implicit operator ImGuiInputTextCallbackDataPtr(ImGuiInputTextCallbackData* nativePtr) => new ImGuiInputTextCallbackDataPtr(nativePtr);
         public static implicit operator ImGuiInputTextCallbackData* (ImGuiInputTextCallbackDataPtr wrappedPtr) => wrappedPtr.NativePtr;
         public static implicit operator ImGuiInputTextCallbackDataPtr(IntPtr nativePtr) => new ImGuiInputTextCallbackDataPtr(nativePtr);
+        public static implicit operator IntPtr(ImGuiInputTextCallbackDataPtr self) => (IntPtr)self.NativePtr;
+        public ref IntPtr Ctx => ref Unsafe.AsRef<IntPtr>(&NativePtr->Ctx);
         public ref ImGuiInputTextFlags EventFlag => ref Unsafe.AsRef<ImGuiInputTextFlags>(&NativePtr->EventFlag);
         public ref ImGuiInputTextFlags Flags => ref Unsafe.AsRef<ImGuiInputTextFlags>(&NativePtr->Flags);
         public IntPtr UserData { get => (IntPtr)NativePtr->UserData; set => NativePtr->UserData = (void*)value; }
-        public ref ushort EventChar => ref Unsafe.AsRef<ushort>(&NativePtr->EventChar);
+        public ref int EventChar => ref Unsafe.AsRef<int>(&NativePtr->EventChar);
         public ref ImGuiKey EventKey => ref Unsafe.AsRef<ImGuiKey>(&NativePtr->EventKey);
         public IntPtr Buf { get => (IntPtr)NativePtr->Buf; set => NativePtr->Buf = (byte*)value; }
         public ref int BufTextLen => ref Unsafe.AsRef<int>(&NativePtr->BufTextLen);
