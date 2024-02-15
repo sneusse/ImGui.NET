@@ -12,6 +12,11 @@ namespace ImGuiNET
         public IntPtr End;
     }
 
+    public unsafe struct ImBitArrayForNamedKeys
+    {
+        public fixed uint Storage[((int)ImGuiKey.NamedKey_COUNT + 31) >> 5];
+    }
+
     public unsafe struct ImChunkStream
     {
         public ImVector Buf;
